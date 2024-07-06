@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\ProductImage;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -18,21 +19,30 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        if ($request->input('name')
-            && $request->input('description')
-            && $request->input('price')
-            && $request->input('quantity')
-            && $request->input('category_id')!= "") {
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'price' => 'required|numeric',
+            'quantity' => 'required|integer',
+            'category_id' => 'required|exists:categories,id'
+        ]);
+        $product = Product::create($validatedData);
 
-            $item = Product::create(['name' => $request->input('name')
-                ,'description' => $request->input('description')
-                ,'price' => $request->input('price')
-                ,'quantity' => $request->input('quantity')
-                ,'category_id' => $request->input('category_id')]);
-            return response()->json($item, 201);
+        if ($request->hasFile('images')) {
+            $images = $request->file("images");
+            $i = 0;
+            foreach ($images as $file) {
+                $fileName = $this->saveImage($file);
+                ProductImage::create([
+                    'name' => $fileName,
+                    'priority' => $i++,
+                    'product_id' => $product->id,
+                ]);
+            }
         }
-        return response()->json("Bad request", 400);
+        return response()->json($product, 201);
     }
+
 
 
     public function destroy(int $id)
